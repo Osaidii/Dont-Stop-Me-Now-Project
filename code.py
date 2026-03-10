@@ -22,7 +22,7 @@ clock = pygame.time.Clock()
 delta_time = 0.1
 images_to_render = [(grass, (0, 0)), (track, (20, 10)), (finish_line, (180, 360)), (trackborder, (20, 10))]
 x = 0
-
+path = []
 running = True
 
 class AbstractCar:
@@ -90,7 +90,7 @@ class ComputerCar(AbstractCar):
         super().__init__(max_vel, rot_vel)
         self.path = path
         self.current_point =  0
-        self.vel = 0
+        self.vel = max_vel * 0.6
 
     def draw_points(self, screen):
         for point in self.path:
@@ -100,6 +100,41 @@ class ComputerCar(AbstractCar):
         super().draw(screen)
         self.draw_points(screen)
 
+    def move(self):
+        if self.current_point >= len(self.path):
+            return
+
+        self.calculate_angle()
+        self.update_path_point()
+        super().move()
+
+    def calculate_angle(self):
+        target_x, target_y = self.path[self.current_point]
+        x_diff = target_x - self.x
+        y_diff = target_y - self.y
+
+        if y_diff == 0:
+            desired_radian_angle = math.pi / 2
+        else:
+            desired_radian_angle = math.atan(x_diff / y_diff)
+
+        if target_y >= self.y:
+            desired_radian_angle += math.pi
+
+        differnce_in_angle = self.angle - math.degrees(desired_radian_angle)
+        if differnce_in_angle >= 180:
+            differnce_in_angle -= 360
+
+        if differnce_in_angle > 0:
+            self.angle -= min(self.rot_vel, abs(differnce_in_angle))
+        else:
+            self.angle += min(self.rot_vel, abs(differnce_in_angle))
+
+    def update_path_point(self):
+        target = self.path[self.current_point]
+        rect = pygame.Rect(self.x, self.y, self.IMG.get_width(), self.IMG.get_height())
+        if rect.collidepoint(*target):
+            self.current_point += 1
 
 def draw(screen, images, player_car, ai_car):
     for img,pos in images:
@@ -110,7 +145,7 @@ def draw(screen, images, player_car, ai_car):
     pygame.display.update()
 
 player_car = PlayerCar(8, 6)
-ai_car = ComputerCar(8, 6)
+ai_car = ComputerCar(8, 6, path)
 
 while running:
     screen.fill((0,0,0))
@@ -126,6 +161,8 @@ while running:
 
     keys = pygame.key.get_pressed()
     moved = False
+
+    ai_car.move()
 
     if keys[pygame.K_a]:
         player_car.rotate(left = True)

@@ -1,8 +1,11 @@
 import pygame
 import math
-from game_utils import scale_image, for_screen, rotate_on_center
+import time
+from game_utils import scale_image, for_screen, rotate_on_center, text_in_center
 
 pygame.init()
+pygame.font.init()
+main_font = pygame.font.SysFont("comicsans", 44)
 pygame.display.set_caption('Dont Stop Me Now! (1.0.0)' )
 car = pygame.image.load('car_for_now.png')
 car = scale_image(car, for_screen(690, 2, "h"))
@@ -22,8 +25,37 @@ clock = pygame.time.Clock()
 delta_time = 0.1
 images_to_render = [(grass, (0, 0)), (track, (20, 10)), (finish_line, (180, 360)), (trackborder, (20, 10))]
 x = 0
-path = []
+path = [(239, 159), (176, 101), (88, 173), (93, 605), (380, 882), (470, 902), (527, 801), (539, 658), (634, 605), (758, 659), (775, 868), (835, 932), (933, 912), (930, 499), (861, 448), (563, 459), (507, 390), (572, 333), (882, 348), (938, 272), (920, 122), (428, 109), (375, 163), (385, 462), (300, 533), (224, 467), (234, 375)]
 running = True
+
+class GameInfo:
+    def __init__(self, level = 0):
+        self.level = level
+        self.current_level = level
+        self.started = False
+        self.level_start_time = 0
+
+    def next_level(self):
+        self.level += 1
+        self.current_level = self.level
+        self.started = False
+
+    def reset(self):
+        self.level = self.current_level
+        self.started = False
+
+    def game_finished(self):
+        return self.level > self.LEVELS
+
+    def start_level(self):
+        self.started = True
+        self.started = time.time()
+
+    def get_level_time(self):
+        if not self.started:
+            return 0
+        return self.level_start_time - time.time()
+
 
 class AbstractCar:
     def __init__(self, max_vel, rot_vel):
@@ -48,7 +80,7 @@ class AbstractCar:
         self.move()
 
     def move_backward(self):
-        self.vel = min(self.vel - self.acceleration, -self.max_vel / 2)
+        self.vel = max(self.vel - self.acceleration, -self.max_vel / 2)
         self.move()
 
     def move(self):
@@ -60,7 +92,10 @@ class AbstractCar:
         self.y -= vertical
 
     def reduce_speed(self):
-        self.vel = max(self.vel - self.acceleration / 1.2, 0)
+        if self.vel > 0:
+            self.vel = max(self.vel - self.acceleration / 1.2, 0)
+        elif self.vel < 0:
+            self.vel = min(self.vel + self.acceleration / 0.5, 0)
         self.move()
 
     def collide(self, mask, x = 0, y = 0):
@@ -68,10 +103,6 @@ class AbstractCar:
         offset = (int(self.x - x), int(self.y - y))
         poi = mask.overlap(car_mask, offset)
         return poi
-
-    def bounce(self):
-        self.vel = -self.vel / 2
-        self.move()
 
     def reset(self):
         self.x, self.y = self.START_POS
@@ -82,6 +113,10 @@ class PlayerCar(AbstractCar):
     IMG = car
     START_POS = (for_screen(690, 160, "h"), for_screen(690, 200, "h"))
 
+    def bounce(self):
+        self.vel = self.vel / 2
+        self.move()
+
 class ComputerCar(AbstractCar):
     IMG = car
     START_POS = (for_screen(690, 130, "h"), for_screen(690, 200, "h"))
@@ -90,7 +125,11 @@ class ComputerCar(AbstractCar):
         super().__init__(max_vel, rot_vel)
         self.path = path
         self.current_point =  0
-        self.vel = max_vel * 0.6
+        self.vel = max_vel
+
+    def bounce(self):
+        self.vel = self.vel / 2
+        self.move()
 
     def draw_points(self, screen):
         for point in self.path:
@@ -144,13 +183,36 @@ def draw(screen, images, player_car, ai_car):
     ai_car.draw(screen)
     pygame.display.update()
 
-player_car = PlayerCar(8, 6)
-ai_car = ComputerCar(8, 6, path)
+def finish_collisions(player_car, ai_car):
+    computer_finish_poi_collide = ai_car.collide(finish_line_mask, 180, 360)
+    if computer_finish_poi_collide != None:
+        ai_car.reset()
+        ai_car.current_point = 0
+
+    player_finish_poi_collide = player_car.collide(finish_line_mask, 180, 360)
+    if player_finish_poi_collide != None:
+        if player_finish_poi_collide[1] == 0:
+            player_car.bounce()
+        else:
+            player_car.reset()
+            ai_car.reset()
+
+player_car = PlayerCar(5.5, 5)
+ai_car = ComputerCar(5, 5, path)
+game_info = GameInfo()
 
 while running:
     screen.fill((0,0,0))
 
     draw(screen, images_to_render, player_car, ai_car)
+
+    while not game_info.started:
+        text_in_center(screen, main_font, f"To Next Level!")
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+            if event.type == pygame.KEYDOWN:
+                game_info.start_level()
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -181,13 +243,7 @@ while running:
     if player_car.collide(trackborder_mask, 20, 10) != None:
         player_car.bounce()
 
-    finish_poi_collide = player_car.collide(finish_line_mask, 180, 360)
-    if finish_poi_collide != None:
-        if finish_poi_collide[1] == 0:
-            player_car.bounce()
-        else:
-            player_car.reset()
-
+    finish_collisions(player_car, ai_car)
 
     clock.tick(60)
 

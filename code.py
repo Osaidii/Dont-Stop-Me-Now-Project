@@ -1,31 +1,33 @@
 import pygame
 import math
 import time
-from game_utils import scale_image, for_screen, rotate_on_center, text_in_center
+from game_utils import scale_image, rotate_on_center, text_in_center
 
 pygame.init()
 pygame.font.init()
-main_font = pygame.font.SysFont("comicsans", 44)
+font_size = 30
+main_font = pygame.font.SysFont("comicsans", int(font_size))
 pygame.display.set_caption('Dont Stop Me Now! (1.0.0)' )
 car = pygame.image.load('car_for_now.png')
-car = scale_image(car, for_screen(690, 2, "h"))
+car = scale_image(car, 2)
 finish_line = pygame.image.load('finish.png')
-finish_line = scale_image(finish_line, for_screen(690, 0.75, "h"))
+finish_line = scale_image(finish_line, 0.75)
 finish_line_mask = pygame.mask.from_surface(finish_line)
 grass = pygame.image.load('grass.jpg')
-grass = scale_image(grass, for_screen(690, 1.7, "h"))
+grass = scale_image(grass, 1.7)
 track = pygame.image.load('track.png')
-track = scale_image(track, for_screen(690, 0.75, "h"))
+track = scale_image(track, 0.75)
 trackborder = pygame.image.load('track-border.png')
-trackborder = scale_image(trackborder, for_screen(690, 0.75, "h"))
+trackborder = scale_image(trackborder, 0.75)
 trackborder_mask = pygame.mask.from_surface(trackborder)
-screen = pygame.display.set_mode((for_screen(690, 695, "h"), for_screen(690, 690, "h")))
+screen = pygame.display.set_mode((695, 690))
 clock = pygame.time.Clock()
 
 delta_time = 0.1
-images_to_render = [(grass, (0, 0)), (track, (20, 10)), (finish_line, (180, 360)), (trackborder, (20, 10))]
+images_to_render = [(grass, (0, 0)), (track, (20, 10)), (finish_line, (130, 240)), (trackborder, (20, 10))]
 x = 0
-path = [(239, 159), (176, 101), (88, 173), (93, 605), (380, 882), (470, 902), (527, 801), (539, 658), (634, 605), (758, 659), (775, 868), (835, 932), (933, 912), (930, 499), (861, 448), (563, 459), (507, 390), (572, 333), (882, 348), (938, 272), (920, 122), (428, 109), (375, 163), (385, 462), (300, 533), (224, 467), (234, 375)]
+path = [(158, 114), (120, 58), (77, 112), (71, 404), (276, 616), (343, 616), (349, 455), (435, 405), (519, 443), (531, 593), (581, 604), (613, 575), (633, 347), (580, 313), (388, 303), (344, 245), (449, 224), (609, 229), (618, 87), (282, 71), (247, 113), (253, 315), (212, 333), (173, 318),  (165, 248)]
+
 running = True
 
 class GameInfo:
@@ -34,6 +36,7 @@ class GameInfo:
         self.current_level = level
         self.started = False
         self.level_start_time = 0
+        self.LEVELS = 5
 
     def next_level(self):
         self.level += 1
@@ -49,13 +52,12 @@ class GameInfo:
 
     def start_level(self):
         self.started = True
-        self.started = time.time()
+        self.level_start_time = time.time()
 
     def get_level_time(self):
         if not self.started:
             return 0
-        return self.level_start_time - time.time()
-
+        return abs(round(self.level_start_time - time.time()))
 
 class AbstractCar:
     def __init__(self, max_vel, rot_vel):
@@ -99,7 +101,8 @@ class AbstractCar:
         self.move()
 
     def collide(self, mask, x = 0, y = 0):
-        car_mask = pygame.mask.from_surface(self.IMG)
+        rotated_image = pygame.transform.rotate(self.IMG, self.angle)
+        car_mask = pygame.mask.from_surface(rotated_image)
         offset = (int(self.x - x), int(self.y - y))
         poi = mask.overlap(car_mask, offset)
         return poi
@@ -111,7 +114,7 @@ class AbstractCar:
 
 class PlayerCar(AbstractCar):
     IMG = car
-    START_POS = (for_screen(690, 160, "h"), for_screen(690, 200, "h"))
+    START_POS = (166, 200)
 
     def bounce(self):
         self.vel = self.vel / 2
@@ -119,7 +122,7 @@ class PlayerCar(AbstractCar):
 
 class ComputerCar(AbstractCar):
     IMG = car
-    START_POS = (for_screen(690, 130, "h"), for_screen(690, 200, "h"))
+    START_POS = (136, 200)
 
     def __init__(self, max_vel, rot_vel, path = []):
         super().__init__(max_vel, rot_vel)
@@ -160,14 +163,14 @@ class ComputerCar(AbstractCar):
         if target_y >= self.y:
             desired_radian_angle += math.pi
 
-        differnce_in_angle = self.angle - math.degrees(desired_radian_angle)
-        if differnce_in_angle >= 180:
-            differnce_in_angle -= 360
+        difference_in_angle = self.angle - math.degrees(desired_radian_angle)
+        if difference_in_angle >= 180:
+            difference_in_angle -= 360
 
-        if differnce_in_angle > 0:
-            self.angle -= min(self.rot_vel, abs(differnce_in_angle))
+        if difference_in_angle > 0:
+            self.angle -= min(self.rot_vel, abs(difference_in_angle))
         else:
-            self.angle += min(self.rot_vel, abs(differnce_in_angle))
+            self.angle += min(self.rot_vel, abs(difference_in_angle))
 
     def update_path_point(self):
         target = self.path[self.current_point]
@@ -175,44 +178,64 @@ class ComputerCar(AbstractCar):
         if rect.collidepoint(*target):
             self.current_point += 1
 
-def draw(screen, images, player_car, ai_car):
+    def next_level(self, level):
+        self.reset()
+        self.vel = self.max_vel + (level - 1) * 0.2
+        self.rot_vel = self.rot_vel + (level - 1) * 0.2
+        self.current_point = 0
+
+def draw(screen, images, player_car, ai_car, game_inf):
     for img,pos in images:
         screen.blit(img, pos)
+
+    level_text = main_font.render(f"Level {game_inf.level}", 1, (0, 0, 0))
+    screen.blit(level_text, (10, screen.get_height() - level_text.get_height() - 7))
+    time_text = main_font.render(f"{game_inf.get_level_time()}s", 1, (0, 0, 0))
+    screen.blit(time_text, (10, screen.get_height() - time_text.get_height() - 40))
 
     player_car.draw(screen)
     ai_car.draw(screen)
     pygame.display.update()
 
-def finish_collisions(player_car, ai_car):
-    computer_finish_poi_collide = ai_car.collide(finish_line_mask, 180, 360)
+def finish_collisions(player_car, ai_car, game_info):
+    computer_finish_poi_collide = ai_car.collide(finish_line_mask, 130, 240)
     if computer_finish_poi_collide != None:
+        game_info.reset()
         ai_car.reset()
         ai_car.current_point = 0
 
-    player_finish_poi_collide = player_car.collide(finish_line_mask, 180, 360)
+    player_finish_poi_collide = player_car.collide(finish_line_mask, 130, 240)
     if player_finish_poi_collide != None:
         if player_finish_poi_collide[1] == 0:
+            text_in_center(screen, main_font, f"You Lost!")
+            pygame.time.wait(5000)
+            game_info.next_level()
             player_car.bounce()
+            ai_car.next_level(game_info.level)
         else:
             player_car.reset()
             ai_car.reset()
 
-player_car = PlayerCar(5.5, 5)
-ai_car = ComputerCar(5, 5, path)
+player_car = PlayerCar(1.6, 3)
+ai_car = ComputerCar(1.6, 3, path)
 game_info = GameInfo()
 
 while running:
     screen.fill((0,0,0))
 
-    draw(screen, images_to_render, player_car, ai_car)
+    draw(screen, images_to_render, player_car, ai_car, game_info)
 
     while not game_info.started:
-        text_in_center(screen, main_font, f"To Next Level!")
+        text_in_center(screen, main_font, "Press Any Button to Start!")
+        pygame.display.update()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                running = False
                 pygame.quit()
+                exit()
             if event.type == pygame.KEYDOWN:
                 game_info.start_level()
+                break
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -240,10 +263,17 @@ while running:
     if not moved:
         player_car.reduce_speed()
 
-    if player_car.collide(trackborder_mask, 20, 10) != None:
+    if player_car.collide(trackborder_mask,  20, 10) != None:
         player_car.bounce()
 
-    finish_collisions(player_car, ai_car)
+    finish_collisions(player_car, ai_car, game_info)
+
+    if game_info.game_finished():
+        text_in_center(screen, main_font, f"You Completed The Game!")
+        pygame.time.wait(5000)
+        game_info.next_level()
+        player_car.bounce()
+        ai_car.next_level(game_info.level)
 
     clock.tick(60)
 

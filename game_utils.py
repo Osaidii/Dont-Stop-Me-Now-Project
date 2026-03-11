@@ -7,17 +7,6 @@ def scale_image(img, factor):
     size = round(img.get_width() * factor), round(img.get_height() * factor)
     return pygame.transform.scale(img, size)
 
-def for_screen(base_res, number, side):
-    screen_size = 0
-    if side == "h":
-        screen_size = root.winfo_screenheight()
-        screen_size -= 50
-    elif side == "w":
-        screen_size = root.winfo_screenwidth()
-        screen_size -= 50
-
-    return (number / base_res) * screen_size
-
 def rotate_on_center(screen, img, top_left, angle):
     rotated_img = pygame.transform.rotate(img, angle)
     new_rectangle = rotated_img.get_rect(center = img.get_rect(topleft = top_left).center)
@@ -25,4 +14,4 @@ def rotate_on_center(screen, img, top_left, angle):
 
 def text_in_center(screen, font, text):
     render = font.render(text, 1, (0, 0, 0))
-    screen.blit(render, (screen.get_width() / 2 - render.get_width() / 2, screen.get_height() / 2) - render.get_height() / 2)
+    screen.blit(render, (screen.get_width() / 2 - render.get_width() / 2, screen.get_height() / 2 - render.get_height() / 2))

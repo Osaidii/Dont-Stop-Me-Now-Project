@@ -8,8 +8,10 @@ pygame.font.init()
 font_size = 30
 main_font = pygame.font.SysFont("comicsans", int(font_size))
 pygame.display.set_caption('Dont Stop Me Now! (1.0.0)' )
-car = pygame.image.load('car_for_now.png')
+car = pygame.image.load('red-car.png')
 car = scale_image(car, 2)
+ai_car_img = pygame.image.load('grey-car.png')
+ai_car_img = scale_image(car, 2)
 finish_line = pygame.image.load('finish.png')
 finish_line = scale_image(finish_line, 0.75)
 finish_line_mask = pygame.mask.from_surface(finish_line)
@@ -121,7 +123,7 @@ class PlayerCar(AbstractCar):
         self.move()
 
 class ComputerCar(AbstractCar):
-    IMG = car
+    IMG = ai_car_img
     START_POS = (136, 200)
 
     def __init__(self, max_vel, rot_vel, path = []):
@@ -134,13 +136,13 @@ class ComputerCar(AbstractCar):
         self.vel = self.vel / 2
         self.move()
 
-    def draw_points(self, screen):
-        for point in self.path:
-            pygame.draw.circle(screen, (255, 0, 0), point, 5)
+    #def draw_points(self, screen):
+    #    for point in self.path:
+    #        pygame.draw.circle(screen, (255, 0, 0), point, 5)
 
     def draw(self, screen):
         super().draw(screen)
-        self.draw_points(screen)
+        #self.draw_points(screen)
 
     def move(self):
         if self.current_point >= len(self.path):
@@ -227,7 +229,6 @@ while running:
 
     while not game_info.started:
         text_in_center(screen, main_font, "Press Any Button to Start!")
-        pygame.display.update()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -240,9 +241,9 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            pos = pygame.mouse.get_pos()
-            ai_car.path.append(pos)
+        #if event.type == pygame.MOUSEBUTTONDOWN:
+        #    pos = pygame.mouse.get_pos()
+        #   ai_car.path.append(pos)
 
     keys = pygame.key.get_pressed()
     moved = False
@@ -277,6 +278,6 @@ while running:
 
     clock.tick(60)
 
-print(ai_car.path)
+#print(ai_car.path)
 pygame.quit()
 

@@ -9,9 +9,9 @@ font_size = 30
 main_font = pygame.font.SysFont("comicsans", int(font_size))
 pygame.display.set_caption('Dont Stop Me Now! (1.0.0)' )
 car = pygame.image.load('red-car.png')
-car = scale_image(car, 2)
-ai_car_img = pygame.image.load('grey-car.png')
-ai_car_img = scale_image(car, 2)
+car = scale_image(car, 0.55)
+comp_car = pygame.image.load('grey-car.png')
+comp_car = scale_image(comp_car, 0.55)
 finish_line = pygame.image.load('finish.png')
 finish_line = scale_image(finish_line, 0.75)
 finish_line_mask = pygame.mask.from_surface(finish_line)
@@ -25,7 +25,6 @@ trackborder_mask = pygame.mask.from_surface(trackborder)
 screen = pygame.display.set_mode((695, 690))
 clock = pygame.time.Clock()
 
-delta_time = 0.1
 images_to_render = [(grass, (0, 0)), (track, (20, 10)), (finish_line, (130, 240)), (trackborder, (20, 10))]
 x = 0
 path = [(158, 114), (120, 58), (77, 112), (71, 404), (276, 616), (343, 616), (349, 455), (435, 405), (519, 443), (531, 593), (581, 604), (613, 575), (633, 347), (580, 313), (388, 303), (344, 245), (449, 224), (609, 229), (618, 87), (282, 71), (247, 113), (253, 315), (212, 333), (173, 318),  (165, 248)]
@@ -33,7 +32,7 @@ path = [(158, 114), (120, 58), (77, 112), (71, 404), (276, 616), (343, 616), (34
 running = True
 
 class GameInfo:
-    def __init__(self, level = 0):
+    def __init__(self, level = 1):
         self.level = level
         self.current_level = level
         self.started = False
@@ -41,6 +40,8 @@ class GameInfo:
         self.LEVELS = 5
 
     def next_level(self):
+        pygame.time.wait(5000)
+        pygame.display.update()
         self.level += 1
         self.current_level = self.level
         self.started = False
@@ -54,6 +55,7 @@ class GameInfo:
 
     def start_level(self):
         self.started = True
+        self.level_start_time = 0
         self.level_start_time = time.time()
 
     def get_level_time(self):
@@ -113,24 +115,26 @@ class AbstractCar:
         self.x, self.y = self.START_POS
         self.angle = 0
         self.vel = 0
+        ai_car.current_point = 0
 
 class PlayerCar(AbstractCar):
     IMG = car
-    START_POS = (166, 200)
+    START_POS = (171, 180)
 
     def bounce(self):
         self.vel = self.vel / 2
         self.move()
 
 class ComputerCar(AbstractCar):
-    IMG = ai_car_img
-    START_POS = (136, 200)
+    IMG = comp_car
+    START_POS = (141, 180)
 
     def __init__(self, max_vel, rot_vel, path = []):
         super().__init__(max_vel, rot_vel)
         self.path = path
         self.current_point =  0
         self.vel = max_vel
+        self.on_level = 1
 
     def bounce(self):
         self.vel = self.vel / 2
@@ -145,6 +149,11 @@ class ComputerCar(AbstractCar):
         #self.draw_points(screen)
 
     def move(self):
+        if self.on_level > game_info.current_level:
+            self.vel = 0
+        else:
+            self.vel = self.max_vel
+        self.vel = self.max_vel
         if self.current_point >= len(self.path):
             return
 
@@ -182,9 +191,10 @@ class ComputerCar(AbstractCar):
 
     def next_level(self, level):
         self.reset()
-        self.vel = self.max_vel + (level - 1) * 0.2
+        self.max_vel = self.max_vel + (level - 1) * 0.2
         self.rot_vel = self.rot_vel + (level - 1) * 0.2
         self.current_point = 0
+        self.on_level += 1
 
 def draw(screen, images, player_car, ai_car, game_inf):
     for img,pos in images:
@@ -200,27 +210,27 @@ def draw(screen, images, player_car, ai_car, game_inf):
     pygame.display.update()
 
 def finish_collisions(player_car, ai_car, game_info):
+    won = None
     computer_finish_poi_collide = ai_car.collide(finish_line_mask, 130, 240)
     if computer_finish_poi_collide != None:
-        game_info.reset()
-        ai_car.reset()
-        ai_car.current_point = 0
+        won = False
 
     player_finish_poi_collide = player_car.collide(finish_line_mask, 130, 240)
     if player_finish_poi_collide != None:
         if player_finish_poi_collide[1] == 0:
-            text_in_center(screen, main_font, f"You Lost!")
-            pygame.time.wait(5000)
-            game_info.next_level()
-            player_car.bounce()
-            ai_car.next_level(game_info.level)
+            won = True
+            if won:
+                text_in_center(screen, main_font, f"You Won!")
+                game_info.next_level()
+                player_car.bounce()
+                ai_car.next_level(game_info.level)
         else:
             player_car.reset()
             ai_car.reset()
 
 player_car = PlayerCar(1.6, 3)
-ai_car = ComputerCar(1.6, 3, path)
 game_info = GameInfo()
+ai_car = ComputerCar(1.6, 3, path)
 
 while running:
     screen.fill((0,0,0))

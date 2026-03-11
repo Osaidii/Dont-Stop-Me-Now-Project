@@ -196,46 +196,44 @@ class ComputerCar(AbstractCar):
         self.current_point = 0
         self.on_level += 1
 
-def draw(screen, images, player_car, ai_car, game_inf):
+def draw(screen, images, player_car, ai_car):
     for img,pos in images:
         screen.blit(img, pos)
-
-    level_text = main_font.render(f"Level {game_inf.level}", 1, (0, 0, 0))
-    screen.blit(level_text, (10, screen.get_height() - level_text.get_height() - 7))
-    time_text = main_font.render(f"{game_inf.get_level_time()}s", 1, (0, 0, 0))
-    screen.blit(time_text, (10, screen.get_height() - time_text.get_height() - 40))
 
     player_car.draw(screen)
     ai_car.draw(screen)
     pygame.display.update()
 
 def finish_collisions(player_car, ai_car, game_info):
-    won = None
-    computer_finish_poi_collide = ai_car.collide(finish_line_mask, 130, 240)
-    if computer_finish_poi_collide != None:
-        won = False
-
     player_finish_poi_collide = player_car.collide(finish_line_mask, 130, 240)
     if player_finish_poi_collide != None:
         if player_finish_poi_collide[1] == 0:
-            won = True
-            if won:
-                text_in_center(screen, main_font, f"You Won!")
-                game_info.next_level()
-                player_car.bounce()
-                ai_car.next_level(game_info.level)
+            game_info.next_level()
+            player_car.bounce()
+            ai_car.next_level(game_info.level)
         else:
             player_car.reset()
             ai_car.reset()
 
-player_car = PlayerCar(1.6, 3)
+player_car = PlayerCar(1.8, 3)
 game_info = GameInfo()
 ai_car = ComputerCar(1.6, 3, path)
 
 while running:
     screen.fill((0,0,0))
 
-    draw(screen, images_to_render, player_car, ai_car, game_info)
+    draw(screen, images_to_render, player_car, ai_car)
+
+    previous_level = None
+    prevoius_time = None
+    if previous_level != game_info.level or prevoius_time != game_info.time:
+        level_text = main_font.render(f"Level {game_info.level}", 1, (0, 0, 0))
+        previous_level = level_text
+        screen.blit(level_text, (10, screen.get_height() - level_text.get_height() - 7))
+        time_text = main_font.render(f"{game_info.get_level_time()}s", 1, (0, 0, 0))
+        prevoius_time = time_text
+        screen.blit(time_text, (10, screen.get_height() - time_text.get_height() - 40))
+        pygame.display.update()
 
     while not game_info.started:
         text_in_center(screen, main_font, "Press Any Button to Start!")

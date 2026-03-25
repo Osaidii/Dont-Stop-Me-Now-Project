@@ -1,6 +1,6 @@
 import pygame
 import math
-import time
+import asyncio
 from game_utils import scale_image, rotate_on_center, text_in_center
 
 pygame.init()
@@ -41,18 +41,18 @@ class GameInfo:
         self.level_start_time = 0
         self.LEVELS = 5
 
-    def next_level(self):
+    async def next_level(self):
         self.level += 1
         self.current_level = self.level
         self.started = False
         player_car.increase_speed(self.level)
         ai_car.increase_speed(self.level)
-        pygame.time.wait(2000)
+        await asyncio.sleep(2)
 
-    def keep_level(self):
+    async def keep_level(self):
         self.current_level = self.level
         self.started = False
-        pygame.time.wait(2000)
+        await asyncio.sleep(2)
 
     def reset(self):
         self.level = self.current_level
@@ -236,7 +236,7 @@ def draw(screen, images, player_car, ai_car):
     ai_car.draw(screen)
     pygame.display.update()
 
-def finish_collisions(player_car, ai_car, game_info):
+async def finish_collisions(player_car, ai_car, game_info):
     ai_finish_poi_collide = ai_car.collide(finish_line_mask, 130, 240)
     if ai_finish_poi_collide != None:
         ai_car.finished = True
@@ -249,71 +249,75 @@ def finish_collisions(player_car, ai_car, game_info):
             if ai_car.finished:
                 player_car.reset()
                 ai_car.reset()
-                game_info.keep_level()
+                await game_info.keep_level()
             else:
                 player_car.reset()
                 ai_car.reset()
-                game_info.next_level()
+                await game_info.next_level()
                 ai_car.on_level += 1
 
 player_car = PlayerCar(1.8, 3)
 game_info = GameInfo()
 ai_car = ComputerCar(1.7, 3, path)
 
-while running:
-    clock.tick(60)
-
-    draw(screen, images_to_render, player_car, ai_car)
-
-    while not game_info.started:
+async def main():
+    global running
+    while running:
+        clock.tick(60)
+    
+        draw(screen, images_to_render, player_car, ai_car)
+    
+        while not game_info.started:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                    pygame.quit()
+                    break
+                if event.type == pygame.KEYDOWN:
+                    game_info.start_level()
+                    break
+    
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-                pygame.quit()
-                exit()
-            if event.type == pygame.KEYDOWN:
-                game_info.start_level()
-                break
-
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
+            #if event.type == pygame.MOUSEBUTTONDOWN:
+            #    pos = pygame.mouse.get_pos()
+            #   ai_car.path.append(pos)
+    
+        keys = pygame.key.get_pressed()
+        moved = False
+    
+        ai_car.move()
+    
+        if keys[pygame.K_a]:
+            player_car.rotate(left = True)
+        if keys[pygame.K_s]:
+            player_car.move_backward()
+            moved = True
+        if keys[pygame.K_d]:
+            player_car.rotate(right = True)
+        if keys[pygame.K_w]:
+            player_car.move_forward()
+            moved = True
+    
+        if not moved:
+            player_car.reduce_speed()
+    
+        if player_car.collide(trackborder_mask,  20, 10) != None:
+            player_car.bounce()
+    
+        await finish_collisions(player_car, ai_car, game_info)
+    
+        if game_info.game_finished():
+            text_in_center(screen, main_font, f"You Completed The Game!")
+            await asyncio.sleep(10)
             running = False
-        #if event.type == pygame.MOUSEBUTTONDOWN:
-        #    pos = pygame.mouse.get_pos()
-        #   ai_car.path.append(pos)
-
-    keys = pygame.key.get_pressed()
-    moved = False
-
-    ai_car.move()
-
-    if keys[pygame.K_a]:
-        player_car.rotate(left = True)
-    if keys[pygame.K_s]:
-        player_car.move_backward()
-        moved = True
-    if keys[pygame.K_d]:
-        player_car.rotate(right = True)
-    if keys[pygame.K_w]:
-        player_car.move_forward()
-        moved = True
-
-    if not moved:
-        player_car.reduce_speed()
-
-    if player_car.collide(trackborder_mask,  20, 10) != None:
-        player_car.bounce()
-
-    finish_collisions(player_car, ai_car, game_info)
-
-    if game_info.game_finished():
-        text_in_center(screen, main_font, f"You Completed The Game!")
-        pygame.time.wait(10000)
-        running = False
-        break
-
-    pygame.display.update()
+            break
+    
+        pygame.display.update()
+        await asyncio.sleep(0)
 
 #print(ai_car.path)
+asyncio.run(main())
 pygame.quit()
 
